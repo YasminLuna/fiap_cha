@@ -1,0 +1,25 @@
+services:
+  api:
+    build: .
+    container_name: oficina-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://oficina:oficina@db:5432/oficina_db
+      SECRET_KEY: alterar-em-producao
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+    depends_on:
+      - db
+  db:
+    image: postgres:16-alpine
+    container_name: oficina-db
+    environment:
+      POSTGRES_USER: oficina
+      POSTGRES_PASSWORD: oficina
+      POSTGRES_DB: oficina_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+volumes:
+  postgres_data:
