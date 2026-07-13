@@ -1,28 +1,54 @@
-# Oficina API — Tech Challenge Fase 2
+# Oficina API — Fase 2 | Sprint 1
 
-Evolução do MVP da Fase 1 para uma solução com **Clean Architecture, testes automatizados, Docker, Kubernetes, Terraform e CI/CD**. O sistema controla clientes, veículos, catálogo de serviços, peças e ordens de serviço, incluindo orçamento, aprovação externa e acompanhamento de status.
+Esta entrega representa a primeira etapa da evolução do Tech Challenge da Fase 1. O foco desta sprint é reorganizar a aplicação com **Clean Architecture**, revisar a modelagem do domínio e deixar os fluxos críticos preparados para as próximas etapas de infraestrutura e automação.
 
-## Decisões principais
+## Escopo desta sprint
 
-- **Python + FastAPI:** API legível, tipada e com Swagger automático.
-- **PostgreSQL:** consistência transacional para estoque, orçamento e histórico.
-- **Monólito modular:** adequado ao porte do MVP, sem custo operacional prematuro de microsserviços.
-- **Clean Architecture:** regras de negócio isoladas de HTTP e persistência.
-- **Kubernetes + HPA:** disponibilidade e escala horizontal por CPU/memória.
-- **Terraform:** cluster local Kind e banco reproduzíveis.
+- Reorganização da aplicação em domínio, aplicação, infraestrutura e apresentação.
+- Revisão das regras de transição de status da ordem de serviço.
+- Implementação dos casos de uso centrais da Fase 2.
+- Adequação das APIs de abertura, consulta, aprovação e priorização das ordens.
+- Modelagem relacional com PostgreSQL e SQLAlchemy.
+- Autenticação administrativa por JWT.
+- Testes automatizados dos fluxos críticos.
+- Documentação da arquitetura e das decisões técnicas.
 
-A arquitetura e o fluxo de deploy estão em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Os artefatos de Kubernetes, Terraform e CI/CD serão incorporados na etapa seguinte, depois da validação funcional da aplicação.
 
-## Requisitos implementados
+## Arquitetura
 
-- Abertura de OS com cliente, veículo, serviços e peças, retornando ID único.
-- Consulta pública do status e detalhes da OS.
-- Webhook de aprovação ou recusa de orçamento.
-- Listagem ativa priorizada: Execução, Aguardando Aprovação, Diagnóstico e Recebida; mais antigas primeiro.
-- OS finalizadas, entregues ou canceladas ficam fora da listagem operacional.
-- Atualização de status com notificação por SMTP; sem SMTP, o evento é registrado em log.
-- CRUD de criação/listagem para clientes, veículos, serviços e peças.
-- JWT, validações, testes, métricas, health e readiness.
+```text
+app/
+├── domain/          # regras e conceitos de negócio
+├── application/     # coordenação dos casos de uso
+├── infrastructure/  # banco, segurança e notificação
+├── presentation/    # contratos e rotas HTTP
+└── main.py
+```
+
+A decisão arquitetural está detalhada em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). A modelagem e o vocabulário do domínio estão em [`docs/DOMAIN_MODEL.md`](docs/DOMAIN_MODEL.md).
+
+## Fluxos atendidos
+
+- Abertura de OS com cliente, veículo, serviços e peças.
+- Retorno de identificação única da ordem de serviço.
+- Consulta do status atual da OS.
+- Aprovação ou recusa externa de orçamento.
+- Atualização controlada do status da OS.
+- Listagem operacional com a prioridade exigida na Fase 2.
+- Exclusão lógica de ordens finalizadas, entregues ou canceladas da fila ativa.
+- Notificação de alteração de status por SMTP ou registro em log.
+
+## Regra de priorização
+
+A fila operacional é apresentada nesta ordem:
+
+1. Em execução.
+2. Aguardando aprovação.
+3. Em diagnóstico.
+4. Recebida.
+
+Dentro do mesmo status, as ordens mais antigas aparecem primeiro.
 
 ## Execução local
 
@@ -31,89 +57,50 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Acesse:
+Acessos locais:
 
 - Swagger: `http://localhost:8000/docs`
-- Health: `http://localhost:8000/health`
+- Health check: `http://localhost:8000/health`
 - Readiness: `http://localhost:8000/ready`
 - Métricas: `http://localhost:8000/metrics`
 
-Credenciais locais: `admin@oficina.example.com` / `Admin123!`.
+Credencial administrativa de desenvolvimento:
 
-## Testes e qualidade
+```text
+admin@oficina.example.com
+Admin123!
+```
+
+## Testes
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
-ruff check app tests
 pytest
-bandit -r app -ll
 ```
 
-A suíte exige cobertura mínima de 80% e cobre o fluxo crítico de abertura, evolução de status, aprovação e priorização das ordens.
+Resultado validado nesta entrega:
 
-## Terraform
-
-Pré-requisitos: Terraform, Docker, kubectl e Kind compatíveis.
-
-```bash
-cd infra
-terraform init
-terraform plan
-terraform apply
+```text
+5 testes aprovados
+90,57% de cobertura
 ```
 
-Recursos: cluster Kind com três nós, namespace `oficina`, Secret, PostgreSQL Deployment e Service. Consulte [`infra/README.md`](infra/README.md).
+A configuração exige cobertura mínima de 80%.
 
-## Deploy Kubernetes
+## Próxima etapa
 
-1. Crie o secret a partir do exemplo, sem versionar valores reais.
-2. A imagem padrão já aponta para `ghcr.io/yasminluna/fiap_cha:latest`.
-3. Aplique os manifestos:
+A Sprint 2 adicionará:
 
-```bash
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/secret.yaml
-kubectl apply -k k8s/
-kubectl get pods,svc,hpa -n oficina
-```
+- Docker revisado para produção;
+- manifestos Kubernetes;
+- HPA por CPU e memória;
+- infraestrutura em Terraform;
+- pipeline GitHub Actions;
+- scans de segurança e smoke tests.
 
-Para acesso local:
-
-```bash
-kubectl port-forward -n oficina service/oficina-api 8000:80
-```
-
-## Demonstração do HPA
-
-O Metrics Server precisa estar ativo. Em outro terminal:
-
-```bash
-kubectl get hpa -n oficina -w
-./scripts/load-test.sh http://localhost:8000/health
-```
-
-## CI/CD
-
-O GitHub Actions executa lint, testes com cobertura, Bandit, build e publicação da imagem no GHCR, scan Trivy, deploy em cluster Kind e smoke test. O workflow está em `.github/workflows/ci-cd.yml`.
-
-## Fluxo de status
-
-`RECEIVED → DIAGNOSIS → AWAITING_APPROVAL → IN_PROGRESS → FINISHED → DELIVERED`
-
-Uma recusa de orçamento move a OS de `AWAITING_APPROVAL` para `CANCELLED`.
-
-## Materiais de entrega
-
-- Arquitetura: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- Roteiro do vídeo: [`docs/VIDEO_SCRIPT_PHASE2.md`](docs/VIDEO_SCRIPT_PHASE2.md)
-- Segurança: [`SECURITY_REPORT_PHASE2.md`](SECURITY_REPORT_PHASE2.md)
-- Swagger/collection: `/docs` e `/openapi.json`
-
-## Dados da entrega
+## Identificação
 
 - Participante: **Yasmin Luna**
-- Repositório: https://github.com/YasminLuna/fiap_cha
-- Vídeo: **PREENCHER LINK DO YOUTUBE/VIMEO**
-- Usuário avaliador: `soat-architecture`
+- Repositório: `https://github.com/YasminLuna/fiap_cha`
