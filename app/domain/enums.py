@@ -1,0 +1,16 @@
+from enum import StrEnum
+
+
+class OrderStatus(StrEnum):
+    RECEIVED = "RECEIVED"
+    DIAGNOSIS = "DIAGNOSIS"
+    AWAITING_APPROVAL = "AWAITING_APPROVAL"
+    IN_PROGRESS = "IN_PROGRESS"
+    FINISHED = "FINISHED"
+    DELIVERED = "DELIVERED"
+    CANCELLED = "CANCELLED"
+
+
+class BudgetDecision(StrEnum):
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"

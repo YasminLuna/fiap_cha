@@ -1,159 +1,119 @@
-# Sistema Integrado de Atendimento e Execução de Serviços - Oficina Mecânica
+# Oficina API — Tech Challenge Fase 2
 
-## 1. Objetivo
+Evolução do MVP da Fase 1 para uma solução com **Clean Architecture, testes automatizados, Docker, Kubernetes, Terraform e CI/CD**. O sistema controla clientes, veículos, catálogo de serviços, peças e ordens de serviço, incluindo orçamento, aprovação externa e acompanhamento de status.
 
-Este projeto foi desenvolvido como MVP de back-end para uma oficina mecânica de médio porte. A proposta é organizar o atendimento, diagnóstico, orçamento, execução e entrega dos veículos, substituindo controles manuais por uma API estruturada, segura e documentada.
+## Decisões principais
 
-O sistema permite cadastrar clientes, veículos, serviços, peças, controlar estoque, criar ordens de serviço, gerar orçamento automaticamente e acompanhar o status da OS.
+- **Python + FastAPI:** API legível, tipada e com Swagger automático.
+- **PostgreSQL:** consistência transacional para estoque, orçamento e histórico.
+- **Monólito modular:** adequado ao porte do MVP, sem custo operacional prematuro de microsserviços.
+- **Clean Architecture:** regras de negócio isoladas de HTTP e persistência.
+- **Kubernetes + HPA:** disponibilidade e escala horizontal por CPU/memória.
+- **Terraform:** cluster local Kind e banco reproduzíveis.
 
-## 2. Stack escolhida
+A arquitetura e o fluxo de deploy estão em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-- Python 3.12
-- FastAPI
-- PostgreSQL
-- SQLAlchemy
-- JWT
-- Swagger automático
-- Docker e Docker Compose
-- Pytest
-- Bandit para análise de vulnerabilidades
+## Requisitos implementados
 
-## 3. Justificativa da stack
+- Abertura de OS com cliente, veículo, serviços e peças, retornando ID único.
+- Consulta pública do status e detalhes da OS.
+- Webhook de aprovação ou recusa de orçamento.
+- Listagem ativa priorizada: Execução, Aguardando Aprovação, Diagnóstico e Recebida; mais antigas primeiro.
+- OS finalizadas, entregues ou canceladas ficam fora da listagem operacional.
+- Atualização de status com notificação por SMTP; sem SMTP, o evento é registrado em log.
+- CRUD de criação/listagem para clientes, veículos, serviços e peças.
+- JWT, validações, testes, métricas, health e readiness.
 
-A escolha do FastAPI foi feita por sua curva de aprendizado simples, produtividade e documentação automática via Swagger. Para um MVP, isso reduz complexidade sem comprometer a qualidade técnica. O PostgreSQL foi escolhido por ser um banco relacional robusto e adequado para dados que exigem consistência, como clientes, veículos, ordens de serviço, orçamento, peças e movimentação de estoque.
-
-## 4. Arquitetura
-
-O projeto segue uma arquitetura monolítica em camadas:
-
-```text
-app/
-  api/        -> rotas REST
-  core/       -> configurações e segurança
-  db/         -> conexão com banco
-  domain/     -> modelos de domínio
-  schemas/    -> contratos de entrada e saída
-  services/   -> regras de negócio
-```
-
-## 5. Como executar localmente
-
-### Usando Docker
+## Execução local
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
-A API ficará disponível em:
+Acesse:
 
-```text
-http://localhost:8000
-```
+- Swagger: `http://localhost:8000/docs`
+- Health: `http://localhost:8000/health`
+- Readiness: `http://localhost:8000/ready`
+- Métricas: `http://localhost:8000/metrics`
 
-Swagger:
+Credenciais locais: `admin@oficina.example.com` / `Admin123!`.
 
-```text
-http://localhost:8000/docs
-```
-
-### Login administrativo
-
-```json
-{
-  "username": "admin",
-  "password": "admin123"
-}
-```
-
-Endpoint:
-
-```text
-POST /auth/login
-```
-
-## 6. Principais endpoints
-
-### Autenticação
-
-- `POST /auth/login`
-
-### Clientes
-
-- `POST /clientes`
-- `GET /clientes`
-
-### Veículos
-
-- `POST /veiculos`
-- `GET /veiculos`
-
-### Serviços
-
-- `POST /servicos`
-- `GET /servicos`
-
-### Peças
-
-- `POST /pecas`
-- `GET /pecas`
-
-### Ordens de Serviço
-
-- `POST /ordens-servico`
-- `GET /ordens-servico`
-- `GET /ordens-servico/{id}`
-- `PATCH /ordens-servico/{id}/status`
-
-### Métricas
-
-- `GET /metricas/tempo-medio-execucao`
-
-## 7. Fluxo principal da OS
-
-1. Cliente e veículo são cadastrados.
-2. Serviços e peças são cadastrados.
-3. A ordem de serviço é aberta com serviços e peças necessárias.
-4. O sistema calcula automaticamente o valor total.
-5. O status inicial da OS fica como `Aguardando aprovação`.
-6. Após aprovação, a OS pode seguir para `Em execução`.
-7. Ao concluir o serviço, o status muda para `Finalizada`.
-8. Após retirada do veículo, a OS muda para `Entregue`.
-
-## 8. Status disponíveis
-
-- Recebida
-- Em diagnóstico
-- Aguardando aprovação
-- Em execução
-- Finalizada
-- Entregue
-
-## 9. Testes
-
-Executar testes:
+## Testes e qualidade
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+ruff check app tests
 pytest
+bandit -r app -ll
 ```
 
-Executar testes com cobertura:
+A suíte exige cobertura mínima de 80% e cobre o fluxo crítico de abertura, evolução de status, aprovação e priorização das ordens.
+
+## Terraform
+
+Pré-requisitos: Terraform, Docker, kubectl e Kind compatíveis.
 
 ```bash
-coverage run -m pytest
-coverage report
+cd infra
+terraform init
+terraform plan
+terraform apply
 ```
 
-## 10. Análise de vulnerabilidades
+Recursos: cluster Kind com três nós, namespace `oficina`, Secret, PostgreSQL Deployment e Service. Consulte [`infra/README.md`](infra/README.md).
 
-Executar Bandit:
+## Deploy Kubernetes
+
+1. Crie o secret a partir do exemplo, sem versionar valores reais.
+2. A imagem padrão já aponta para `ghcr.io/yasminluna/fiap_cha:latest`.
+3. Aplique os manifestos:
 
 ```bash
-bandit -r app
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/secret.yaml
+kubectl apply -k k8s/
+kubectl get pods,svc,hpa -n oficina
 ```
 
-## 11. Observações de segurança
+Para acesso local:
 
-- APIs administrativas protegidas por JWT.
-- Validação de CPF/CNPJ por quantidade de dígitos.
-- Validação de placa no padrão brasileiro/Mercosul.
-- Senha administrativa fixa apenas para MVP. Em produção, deve ser substituída por usuários persistidos no banco com hash de senha.
+```bash
+kubectl port-forward -n oficina service/oficina-api 8000:80
+```
+
+## Demonstração do HPA
+
+O Metrics Server precisa estar ativo. Em outro terminal:
+
+```bash
+kubectl get hpa -n oficina -w
+./scripts/load-test.sh http://localhost:8000/health
+```
+
+## CI/CD
+
+O GitHub Actions executa lint, testes com cobertura, Bandit, build e publicação da imagem no GHCR, scan Trivy, deploy em cluster Kind e smoke test. O workflow está em `.github/workflows/ci-cd.yml`.
+
+## Fluxo de status
+
+`RECEIVED → DIAGNOSIS → AWAITING_APPROVAL → IN_PROGRESS → FINISHED → DELIVERED`
+
+Uma recusa de orçamento move a OS de `AWAITING_APPROVAL` para `CANCELLED`.
+
+## Materiais de entrega
+
+- Arquitetura: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- Roteiro do vídeo: [`docs/VIDEO_SCRIPT_PHASE2.md`](docs/VIDEO_SCRIPT_PHASE2.md)
+- Segurança: [`SECURITY_REPORT_PHASE2.md`](SECURITY_REPORT_PHASE2.md)
+- Swagger/collection: `/docs` e `/openapi.json`
+
+## Dados da entrega
+
+- Participante: **Yasmin Luna**
+- Repositório: https://github.com/YasminLuna/fiap_cha
+- Vídeo: **PREENCHER LINK DO YOUTUBE/VIMEO**
+- Usuário avaliador: `soat-architecture`
