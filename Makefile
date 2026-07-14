@@ -1,12 +1,29 @@
-.PHONY: install test lint up down
+.PHONY: install test test-unit test-integration coverage lint format quality security
+
 install:
-	pip install -r requirements-dev.txt
+	python -m pip install -r requirements-dev.txt
+
 test:
 	pytest
+
+test-unit:
+	pytest tests/test_domain.py
+
+test-integration:
+	pytest tests/test_api.py
+
+coverage:
+	pytest --cov-report=term-missing --cov-report=html --cov-report=xml
+
 lint:
 	ruff check app tests
-up:
-	cp -n .env.example .env || true
-	docker compose up --build -d
-down:
-	docker compose down
+	ruff format --check app tests
+
+format:
+	ruff check --fix app tests
+	ruff format app tests
+
+security:
+	bandit -r app -q
+
+quality: lint test security

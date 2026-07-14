@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import case, select
@@ -107,7 +107,7 @@ class OrderService:
         ensure_transition(OrderStatus(order.status), target)
         order.status = target.value
         if target == OrderStatus.FINISHED:
-            order.finished_at = datetime.now(timezone.utc)
+            order.finished_at = datetime.now(UTC)
         self.db.commit()
         self.db.refresh(order)
         client = self.db.get(ClientModel, order.client_id)

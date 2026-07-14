@@ -146,3 +146,16 @@ ghcr.io/yasminluna/fiap_cha:latest
 
 - Participante: **Yasmin Luna**
 - Repositório: `https://github.com/YasminLuna/fiap_cha`
+
+## Qualidade e testes
+
+A Sprint 3 introduz uma suíte de testes organizada por domínio e integração, com fixtures, factories e mocks para dependências externas. O limite mínimo de cobertura é 85%, com análise de branches e relatórios em HTML e XML.
+
+```bash
+make lint
+make test
+make coverage
+make security
+```
+
+A documentação detalhada está em [`docs/SPRINT3_QUALITY.md`](docs/SPRINT3_QUALITY.md).

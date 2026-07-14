@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -13,7 +13,7 @@ password_hash = PasswordHash.recommended()
 
 def create_token(subject: str) -> str:
     cfg = get_settings()
-    exp = datetime.now(timezone.utc) + timedelta(minutes=cfg.access_token_expire_minutes)
+    exp = datetime.now(UTC) + timedelta(minutes=cfg.access_token_expire_minutes)
     return jwt.encode({"sub": subject, "exp": exp}, cfg.jwt_secret, algorithm="HS256")
 
 
