@@ -27,3 +27,22 @@ security:
 	bandit -r app -q
 
 quality: lint test security
+.PHONY: compose-up compose-down kind-up kind-down deploy-local k8s-status
+
+compose-up:
+	docker compose up --build
+
+compose-down:
+	docker compose down -v
+
+kind-up:
+	./scripts/kind-up.sh
+
+kind-down:
+	./scripts/kind-down.sh
+
+deploy-local:
+	./scripts/deploy-local.sh
+
+k8s-status:
+	kubectl get pods,svc,ingress,hpa -n oficina
