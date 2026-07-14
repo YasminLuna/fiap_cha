@@ -1,75 +1,53 @@
-# Oficina API — Fase 2 | Sprint 1
+# Oficina API — Fase 2 | Sprint 2
 
-Esta entrega representa a primeira etapa da evolução do Tech Challenge da Fase 1. O foco desta sprint é reorganizar a aplicação com **Clean Architecture**, revisar a modelagem do domínio e deixar os fluxos críticos preparados para as próximas etapas de infraestrutura e automação.
+Esta etapa evolui a aplicação da Sprint 1 com os artefatos de infraestrutura e automação exigidos no Tech Challenge. O projeto mantém o back-end em FastAPI e PostgreSQL, organizado em Clean Architecture, e acrescenta containerização, Kubernetes, Terraform e CI/CD.
 
-## Escopo desta sprint
+## O que foi incorporado
 
-- Reorganização da aplicação em domínio, aplicação, infraestrutura e apresentação.
-- Revisão das regras de transição de status da ordem de serviço.
-- Implementação dos casos de uso centrais da Fase 2.
-- Adequação das APIs de abertura, consulta, aprovação e priorização das ordens.
-- Modelagem relacional com PostgreSQL e SQLAlchemy.
-- Autenticação administrativa por JWT.
-- Testes automatizados dos fluxos críticos.
-- Documentação da arquitetura e das decisões técnicas.
+- Dockerfile multi-stage executando a aplicação com usuário não root.
+- Docker Compose para aplicação e PostgreSQL em desenvolvimento local.
+- Manifestos Kubernetes em `k8s/`.
+- Deployment com probes, limites de recursos e contexto de segurança.
+- Service, ConfigMap, Secret de exemplo, PostgreSQL com volume e NetworkPolicy.
+- Horizontal Pod Autoscaler por CPU e memória.
+- Terraform para criar um cluster Kind e o banco PostgreSQL.
+- Pipeline GitHub Actions com lint, testes, cobertura, Bandit, Terraform, build, Trivy, deploy e smoke test.
+- Script de carga para demonstrar o HPA.
 
-Os artefatos de Kubernetes, Terraform e CI/CD serão incorporados na etapa seguinte, depois da validação funcional da aplicação.
-
-## Arquitetura
+## Estrutura relevante
 
 ```text
-app/
-├── domain/          # regras e conceitos de negócio
-├── application/     # coordenação dos casos de uso
-├── infrastructure/  # banco, segurança e notificação
-├── presentation/    # contratos e rotas HTTP
-└── main.py
+.github/workflows/ci-cd.yml
+infra/
+k8s/
+scripts/
+Dockerfile
+docker-compose.yml
 ```
 
-A decisão arquitetural está detalhada em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). A modelagem e o vocabulário do domínio estão em [`docs/DOMAIN_MODEL.md`](docs/DOMAIN_MODEL.md).
+## Executar localmente
 
-## Fluxos atendidos
-
-- Abertura de OS com cliente, veículo, serviços e peças.
-- Retorno de identificação única da ordem de serviço.
-- Consulta do status atual da OS.
-- Aprovação ou recusa externa de orçamento.
-- Atualização controlada do status da OS.
-- Listagem operacional com a prioridade exigida na Fase 2.
-- Exclusão lógica de ordens finalizadas, entregues ou canceladas da fila ativa.
-- Notificação de alteração de status por SMTP ou registro em log.
-
-## Regra de priorização
-
-A fila operacional é apresentada nesta ordem:
-
-1. Em execução.
-2. Aguardando aprovação.
-3. Em diagnóstico.
-4. Recebida.
-
-Dentro do mesmo status, as ordens mais antigas aparecem primeiro.
-
-## Execução local
+Crie o arquivo de configuração e suba o ambiente:
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-Acessos locais:
+A documentação Swagger estará em `http://localhost:8000/docs`.
 
-- Swagger: `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
-- Readiness: `http://localhost:8000/ready`
-- Métricas: `http://localhost:8000/metrics`
+### Problema de certificado SSL durante o build
 
-Credencial administrativa de desenvolvimento:
+O Dockerfile aceita os argumentos `PIP_INDEX_URL` e `PIP_TRUSTED_HOST`. Isso permite executar o build em redes que fazem inspeção HTTPS e apresentam certificado próprio.
 
-```text
-admin@oficina.example.com
-Admin123!
+O valor padrão já contempla o PyPI:
+
+```bash
+docker compose build --no-cache
+docker compose up
 ```
+
+Em ambiente corporativo, a solução preferencial é usar a autoridade certificadora da empresa. O argumento foi mantido para tornar o laboratório reproduzível sem bloquear a entrega.
 
 ## Testes
 
@@ -80,25 +58,89 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-Resultado validado nesta entrega:
+Resultado validado:
 
 ```text
 5 testes aprovados
 90,57% de cobertura
 ```
 
-A configuração exige cobertura mínima de 80%.
+## Provisionar o cluster com Terraform
 
-## Próxima etapa
+Pré-requisitos: Docker, Terraform e kubectl.
 
-A Sprint 2 adicionará:
+```bash
+cd infra
+terraform init
+terraform plan
+terraform apply
+```
 
-- Docker revisado para produção;
-- manifestos Kubernetes;
-- HPA por CPU e memória;
-- infraestrutura em Terraform;
-- pipeline GitHub Actions;
-- scans de segurança e smoke tests.
+O Terraform cria:
+
+- cluster Kubernetes local com Kind;
+- namespace `oficina`;
+- Secret do PostgreSQL;
+- Deployment e Service do banco.
+
+## Implantar a aplicação no Kubernetes
+
+Na raiz do projeto:
+
+```bash
+./scripts/create-k8s-secret.sh
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/postgres.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/hpa.yaml
+kubectl apply -f k8s/networkpolicy.yaml
+```
+
+Acompanhe o deploy:
+
+```bash
+kubectl get pods -n oficina
+kubectl get hpa -n oficina
+kubectl rollout status deployment/oficina-api -n oficina
+```
+
+Para acessar localmente:
+
+```bash
+kubectl port-forward -n oficina service/oficina-api 8000:80
+```
+
+## Demonstrar escalabilidade
+
+Com o port-forward ativo:
+
+```bash
+./scripts/load-test.sh
+kubectl get hpa -n oficina -w
+kubectl get pods -n oficina -w
+```
+
+O HPA está configurado com mínimo de 2 e máximo de 8 réplicas, usando CPU e memória como métricas.
+
+## Pipeline
+
+O workflow `.github/workflows/ci-cd.yml` executa:
+
+1. Ruff e testes com cobertura mínima de 80%.
+2. Bandit para análise estática de segurança.
+3. Formatação e validação do Terraform.
+4. Build e publicação da imagem no GitHub Container Registry.
+5. Scan da imagem com Trivy.
+6. Criação de um cluster Kind no runner.
+7. Deploy do PostgreSQL e dos manifestos Kubernetes.
+8. Smoke test dos endpoints `/health` e `/ready`.
+
+Imagem configurada:
+
+```text
+ghcr.io/yasminluna/fiap_cha:latest
+```
 
 ## Identificação
 
