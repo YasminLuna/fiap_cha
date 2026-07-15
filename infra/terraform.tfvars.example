@@ -1,0 +1,7 @@
+kubernetes_context = "minikube"
+namespace          = "oficina"
+
+postgres_database = "oficina_db"
+postgres_user     = "oficina"
+postgres_password = "s1a508fc31d2f77c7d844276600551e208cd9f7a37adf2738756b5943a2dc35ab"
+postgres_storage  = "1Gi"

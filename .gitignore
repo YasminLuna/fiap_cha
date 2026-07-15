@@ -5,3 +5,7 @@ __pycache__/
 htmlcov/
 .pytest_cache/
 .DS_Store
+infra/terraform.tfvars
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
