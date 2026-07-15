@@ -54,13 +54,22 @@ jobs:
         run: |
           docker build -t oficina-api .
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.14.6"
+
+      - name: Terraform Format
+        working-directory: infra
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init -backend=false -input=false
+
       - name: Terraform Validate
-        run: |
-          if [ -d infra ]; then
-            cd infra
-            terraform init -backend=false
-            terraform validate
-          fi
+        working-directory: infra
+        run: terraform validate -no-color
 
       - name: Deploy (Simulação)
         run: |
