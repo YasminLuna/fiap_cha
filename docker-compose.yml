@@ -1,25 +1,36 @@
 services:
-  api:
-    build: .
-    container_name: oficina-api
-    ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://oficina:oficina@db:5432/oficina_db
-      SECRET_KEY: alterar-em-producao
-      ACCESS_TOKEN_EXPIRE_MINUTES: 60
-    depends_on:
-      - db
   db:
-    image: postgres:16-alpine
-    container_name: oficina-db
+    image: postgres:17-alpine
     environment:
-      POSTGRES_USER: oficina
-      POSTGRES_PASSWORD: oficina
-      POSTGRES_DB: oficina_db
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-oficina}
+      POSTGRES_USER: ${POSTGRES_USER:-oficina}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oficina}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oficina} -d ${POSTGRES_DB:-oficina}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.org files.pythonhosted.org}
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+
 volumes:
   postgres_data:

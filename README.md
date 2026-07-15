@@ -1,159 +1,301 @@
-# Sistema Integrado de Atendimento e Execução de Serviços - Oficina Mecânica
+# Sistema Integrado de Gestão para Oficina Mecânica
 
-## 1. Objetivo
+## Tech Challenge – Fase II
 
-Este projeto foi desenvolvido como MVP de back-end para uma oficina mecânica de médio porte. A proposta é organizar o atendimento, diagnóstico, orçamento, execução e entrega dos veículos, substituindo controles manuais por uma API estruturada, segura e documentada.
+**Aluno:** Yasmin Luna
 
-O sistema permite cadastrar clientes, veículos, serviços, peças, controlar estoque, criar ordens de serviço, gerar orçamento automaticamente e acompanhar o status da OS.
+**Curso:** Software Architecture – FIAP
 
-## 2. Stack escolhida
+**Repositório:** https://github.com/YasminLuna/fiap_cha
 
-- Python 3.12
-- FastAPI
-- PostgreSQL
-- SQLAlchemy
-- JWT
-- Swagger automático
-- Docker e Docker Compose
-- Pytest
-- Bandit para análise de vulnerabilidades
+---
 
-## 3. Justificativa da stack
+# Descrição da solução
 
-A escolha do FastAPI foi feita por sua curva de aprendizado simples, produtividade e documentação automática via Swagger. Para um MVP, isso reduz complexidade sem comprometer a qualidade técnica. O PostgreSQL foi escolhido por ser um banco relacional robusto e adequado para dados que exigem consistência, como clientes, veículos, ordens de serviço, orçamento, peças e movimentação de estoque.
+Este projeto consiste no desenvolvimento de uma API REST para gerenciamento de Ordens de Serviço de uma oficina mecânica.
 
-## 4. Arquitetura
+A solução foi construída utilizando Clean Architecture e princípios de Domain-Driven Design (DDD), permitindo baixo acoplamento entre as camadas da aplicação e facilitando sua evolução.
 
-O projeto segue uma arquitetura monolítica em camadas:
+Além da implementação da API, o projeto contempla a conteinerização da aplicação, orquestração com Kubernetes, provisionamento de infraestrutura utilizando Terraform e automação do processo de integração e entrega contínua por meio do GitHub Actions.
+
+---
+
+# Arquitetura da solução
+
+A aplicação foi organizada seguindo o padrão **Clean Architecture**, separando claramente as responsabilidades em quatro camadas principais.
+
+```text
+Cliente
+    │
+    ▼
+FastAPI (Presentation)
+    │
+    ▼
+Use Cases (Application)
+    │
+    ▼
+Domain
+    │
+    ▼
+Infrastructure
+    │
+    ▼
+PostgreSQL
+```
+
+## Estrutura do projeto
 
 ```text
 app/
-  api/        -> rotas REST
-  core/       -> configurações e segurança
-  db/         -> conexão com banco
-  domain/     -> modelos de domínio
-  schemas/    -> contratos de entrada e saída
-  services/   -> regras de negócio
+├── application
+├── domain
+├── infrastructure
+├── presentation
+└── main.py
+
+tests/
+
+k8s/
+
+infra/
+
+docs/
+
+.github/
 ```
 
-## 5. Como executar localmente
+---
 
-### Usando Docker
+# Tecnologias utilizadas
+
+- Python 3.13
+- FastAPI
+- PostgreSQL
+- SQLAlchemy
+- Docker
+- Docker Compose
+- Kubernetes
+- Minikube
+- Terraform
+- GitHub Actions
+- Pytest
+- Ruff
+- Bandit
+
+---
+
+# Funcionalidades
+
+A API disponibiliza as seguintes funcionalidades:
+
+- Cadastro de Ordem de Serviço
+- Consulta de Ordem de Serviço
+- Aprovação de orçamento
+- Recusa de orçamento
+- Atualização de status
+- Listagem das Ordens de Serviço
+- Health Check
+- Readiness Check
+
+---
+
+# Como executar
+
+## Clonar o projeto
+
+```bash
+git clone https://github.com/YasminLuna/fiap_cha.git
+
+cd fiap_cha
+```
+
+---
+
+## Configurar as variáveis
+
+Criar o arquivo:
+
+```
+.env
+```
+
+Exemplo:
+
+```env
+POSTGRES_DB=oficina_db
+POSTGRES_USER=oficina
+POSTGRES_PASSWORD=oficina
+
+DATABASE_URL=postgresql+psycopg://oficina:oficina@db:5432/oficina_db
+
+SECRET_KEY=alterar-em-producao
+
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+```
+
+---
+
+## Executar com Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-A API ficará disponível em:
+A aplicação ficará disponível em:
 
-```text
+```
 http://localhost:8000
 ```
 
 Swagger:
 
-```text
+```
 http://localhost:8000/docs
 ```
 
-### Login administrativo
+Health Check:
 
-```json
-{
-  "username": "admin",
-  "password": "admin123"
-}
+```
+http://localhost:8000/health
 ```
 
-Endpoint:
+---
 
-```text
-POST /auth/login
+# Deploy Kubernetes
+
+Iniciar o Minikube
+
+```bash
+minikube start
 ```
 
-## 6. Principais endpoints
+Aplicar os manifestos
 
-### Autenticação
+```bash
+kubectl apply -k k8s/
+```
 
-- `POST /auth/login`
+Consultar os recursos
 
-### Clientes
+```bash
+kubectl get all -n oficina
+```
 
-- `POST /clientes`
-- `GET /clientes`
+---
 
-### Veículos
+# Deploy com Terraform
 
-- `POST /veiculos`
-- `GET /veiculos`
+Entrar na pasta
 
-### Serviços
+```bash
+cd infra
+```
 
-- `POST /servicos`
-- `GET /servicos`
+Inicializar
 
-### Peças
+```bash
+terraform init
+```
 
-- `POST /pecas`
-- `GET /pecas`
+Validar
 
-### Ordens de Serviço
+```bash
+terraform validate
+```
 
-- `POST /ordens-servico`
-- `GET /ordens-servico`
-- `GET /ordens-servico/{id}`
-- `PATCH /ordens-servico/{id}/status`
+Executar o plano
 
-### Métricas
+```bash
+terraform plan
+```
 
-- `GET /metricas/tempo-medio-execucao`
+Aplicar
 
-## 7. Fluxo principal da OS
+```bash
+terraform apply
+```
 
-1. Cliente e veículo são cadastrados.
-2. Serviços e peças são cadastrados.
-3. A ordem de serviço é aberta com serviços e peças necessárias.
-4. O sistema calcula automaticamente o valor total.
-5. O status inicial da OS fica como `Aguardando aprovação`.
-6. Após aprovação, a OS pode seguir para `Em execução`.
-7. Ao concluir o serviço, o status muda para `Finalizada`.
-8. Após retirada do veículo, a OS muda para `Entregue`.
+---
 
-## 8. Status disponíveis
+# Pipeline CI/CD
 
-- Recebida
-- Em diagnóstico
-- Aguardando aprovação
-- Em execução
-- Finalizada
-- Entregue
+A pipeline automatiza as seguintes etapas:
 
-## 9. Testes
+- Checkout do código
+- Instalação das dependências
+- Execução do Ruff
+- Execução dos testes
+- Cálculo da cobertura
+- Bandit
+- Build da imagem Docker
+- Publicação da imagem
+- Deploy da infraestrutura
+- Deploy da aplicação
+- Smoke Tests
 
-Executar testes:
+---
+
+# Testes
+
+Executar:
 
 ```bash
 pytest
 ```
 
-Executar testes com cobertura:
+Cobertura:
 
 ```bash
-coverage run -m pytest
-coverage report
+pytest --cov=app --cov-report=html
 ```
 
-## 10. Análise de vulnerabilidades
+---
 
-Executar Bandit:
+# Segurança
 
-```bash
-bandit -r app
+Foram adotadas as seguintes práticas:
+
+- JWT
+- Secrets do Kubernetes
+- ConfigMaps
+- NetworkPolicy
+- Containers sem privilégios
+- Readiness Probe
+- Liveness Probe
+- Validação de entrada utilizando Pydantic
+
+---
+
+# Documentação da API
+
+Swagger:
+
+```
+http://localhost:8000/docs
 ```
 
-## 11. Observações de segurança
+OpenAPI:
 
-- APIs administrativas protegidas por JWT.
-- Validação de CPF/CNPJ por quantidade de dígitos.
-- Validação de placa no padrão brasileiro/Mercosul.
-- Senha administrativa fixa apenas para MVP. Em produção, deve ser substituída por usuários persistidos no banco com hash de senha.
+```
+http://localhost:8000/openapi.json
+```
+
+---
+
+# Vídeo de demonstração
+
+Link:
+
+```
+Adicionar após a publicação.
+```
+
+---
+
+# Autor
+
+Yasmin Luna
+
+Software Architecture – FIAP
+
+2026
