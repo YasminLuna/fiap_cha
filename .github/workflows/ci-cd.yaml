@@ -1,0 +1,67 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - fase-2
+
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-test-docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+          if [ -f requirements-dev.txt ]; then
+            pip install -r requirements-dev.txt
+          fi
+
+      - name: Lint (Ruff)
+        run: |
+          if command -v ruff >/dev/null 2>&1; then
+            ruff check .
+          else
+            echo "Ruff não configurado."
+          fi
+
+      - name: Executar Testes
+        run: |
+          if [ -d tests ]; then
+            pytest --maxfail=1 --disable-warnings
+          else
+            echo "Sem testes."
+          fi
+
+      - name: Build Docker
+        run: |
+          docker build -t oficina-api .
+
+      - name: Terraform Validate
+        run: |
+          if [ -d infra ]; then
+            cd infra
+            terraform init -backend=false
+            terraform validate
+          fi
+
+      - name: Deploy (Simulação)
+        run: |
+          echo "Deploy executado com sucesso."
